@@ -1,0 +1,69 @@
+import numpy as np
+
+data = ['I', 'love', 'deep', 'learning']
+word_to_idx = {w: i for i, w in enumerate(data)}
+idx_to_word = {i: w for w, i in word_to_idx.items()}
+inputs = [word_to_idx[w] for w in data[:-1]]  
+target = word_to_idx[data[-1]] 
+
+vocab_size = len(word_to_idx)
+embedding_dim = 4
+hidden_size = 4
+lr = 0.01
+
+np.random.seed(2)
+Wxh = np.random.randn(hidden_size, embedding_dim)
+Whh = np.random.randn(hidden_size, hidden_size)
+Why = np.random.randn(vocab_size, hidden_size)
+bh = np.zeros((hidden_size, 1))
+by = np.zeros((vocab_size, 1))
+embedding = np.random.randn(vocab_size, embedding_dim)
+
+
+for epoch in range(100):
+    hs = {}
+    xs = {}
+    hs[-1] = np.zeros((hidden_size, 1))
+
+    for t in range(len(inputs)):
+        xs[t] = embedding[inputs[t]].reshape(-1, 1)
+        hs[t] = np.tanh(np.dot(Wxh, xs[t]) + np.dot(Whh, hs[t - 1]) + bh)
+
+    
+    y = np.dot(Why, hs[len(inputs) - 1]) + by
+    probs = np.exp(y) / np.sum(np.exp(y))
+    loss = -np.log(probs[target])
+
+    dy = probs
+    dy[target] -= 1
+
+    dWhy = np.dot(dy, hs[len(inputs) - 1].T)
+    dby = dy
+    dh = np.dot(Why.T, dy)
+
+    dWxh = np.zeros_like(Wxh)
+    dWhh = np.zeros_like(Whh)
+    dbh = np.zeros_like(bh)
+
+    for t in reversed(range(len(inputs))):
+        dtanh = (1 - hs[t] ** 2) * dh
+        dWxh += np.dot(dtanh, xs[t].T)
+        dWhh += np.dot(dtanh, hs[t - 1].T)
+        dbh += dtanh
+        dh = np.dot(Whh.T, dtanh)
+
+    for param, dparam in zip([Wxh, Whh, Why, bh, by], [dWxh, dWhh, dWhy, dbh, dby]):
+        param -= lr * dparam
+
+    if epoch % 10 == 0:
+        print(f"Epoch {epoch}, Loss: {loss.item()}")
+
+x_test = [word_to_idx['I'], word_to_idx['love'], word_to_idx['deep']]
+hs[-1] = np.zeros((hidden_size, 1))
+for t in range(len(x_test)):
+    x_t = embedding[x_test[t]].reshape(-1, 1)
+    hs[t] = np.tanh(np.dot(Wxh, x_t) + np.dot(Whh, hs[t-1]) + bh)
+
+y_pred = np.dot(Why, hs[len(x_test)-1]) + by
+pred = np.argmax(y_pred)
+print("Predicted word:", idx_to_word[pred])
